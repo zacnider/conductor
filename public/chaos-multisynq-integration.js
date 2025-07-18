@@ -78,20 +78,54 @@ class ChaosMultisynqIntegration {
             console.log('✅ ChaosGameModel available:', typeof window.ChaosGameModel);
             console.log('✅ ChaosGameView available:', typeof window.ChaosGameView);
             
-            // Multisynq session'ını başlat - TÜM KULLANICILAR AYNI SESSION'A BAĞLANMALI
-            this.session = await Multisynq.Session.join({
-                apiKey: MULTISYNQ_CONFIG.apiKey,
-                appId: MULTISYNQ_CONFIG.appId,
-                name: 'chaos-main-room', // SABIT session name - tüm kullanıcılar aynı session'a bağlanır
-                password: 'chaos2025', // Required password
-                model: window.ChaosGameModel,
-                view: window.ChaosGameView,
-                debug: ["session", "messages"],
-                tps: 30,
-                eventRateLimit: 30,
-                autoSleep: false, // ARKA PLAN UYKU MODUNU DEVRE DIŞI BIRAK
-                rejoinLimit: 30000 // 30 saniye yeniden bağlanma süresi
-            });
+            // ENHANCED: Multisynq session'ını başlat - Connection resilience ile
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            while (attempts < maxAttempts) {
+                attempts++;
+                
+                try {
+                    console.log(`🔗 Multisynq connection attempt ${attempts}/${maxAttempts}`);
+                    
+                    // Add timeout to prevent hanging
+                    this.session = await Promise.race([
+                        Multisynq.Session.join({
+                            apiKey: MULTISYNQ_CONFIG.apiKey,
+                            appId: MULTISYNQ_CONFIG.appId,
+                            name: 'chaos-main-room', // SABIT session name - tüm kullanıcılar aynı session'a bağlanır
+                            password: 'chaos2025', // Required password
+                            model: window.ChaosGameModel,
+                            view: window.ChaosGameView,
+                            debug: ["session", "messages"],
+                            tps: 30,
+                            eventRateLimit: 30,
+                            autoSleep: false, // ARKA PLAN UYKU MODUNU DEVRE DIŞI BIRAK
+                            rejoinLimit: 30000, // 30 saniye yeniden bağlanma süresi
+                            connectionTimeout: 15000 // 15 saniye bağlantı timeout'u
+                        }),
+                        new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Multisynq connection timeout')), 15000);
+                        })
+                    ]);
+                    
+                    // Success, break out of retry loop
+                    console.log('✅ Multisynq connection successful');
+                    break;
+                    
+                } catch (error) {
+                    console.warn(`❌ Multisynq connection attempt ${attempts} failed:`, error);
+                    
+                    if (attempts === maxAttempts) {
+                        throw new Error(`Failed to connect to Multisynq after ${maxAttempts} attempts: ${error.message}`);
+                    }
+                    
+                    // Wait before retry with exponential backoff
+                    const waitTime = Math.min(3000 * attempts, 10000); // Max 10 seconds
+                    console.log(`⏳ Retrying Multisynq connection in ${waitTime/1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+            }
 
             this.view = this.session.view;
             this.isConnected = true;
