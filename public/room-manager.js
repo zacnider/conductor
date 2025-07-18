@@ -244,6 +244,24 @@ class RoomManager {
                 return;
             }
 
+            // ENHANCED: Check if room still exists before joining
+            const room = this.globalRooms.get(roomId);
+            if (!room) {
+                console.warn('Room not found in global rooms, refreshing list...');
+                this.refreshRoomsList();
+                
+                // Wait a bit and try again
+                setTimeout(() => {
+                    const refreshedRoom = this.globalRooms.get(roomId);
+                    if (!refreshedRoom) {
+                        alert('Room no longer exists. Please refresh the room list.');
+                        return;
+                    }
+                    this.joinRoom(roomId, refreshedRoom);
+                }, 1000);
+                return;
+            }
+
             let password = null;
             
             // Check if room requires password
@@ -254,13 +272,48 @@ class RoomManager {
                 }
             }
 
-            // Use Multisynq View to join room
-            this.multisynqView.joinRoom(roomId, password);
-
-            console.log('Room join request sent:', roomId);
+            // ENHANCED: Add retry mechanism for room join
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            const attemptJoin = async () => {
+                attempts++;
+                try {
+                    console.log(`Room join attempt ${attempts}/${maxAttempts} for room: ${roomId}`);
+                    
+                    // Use Multisynq View to join room
+                    this.multisynqView.joinRoom(roomId, password);
+                    
+                    console.log('Room join request sent:', roomId);
+                } catch (error) {
+                    console.error(`Room join attempt ${attempts} failed:`, error);
+                    
+                    if (attempts < maxAttempts) {
+                        console.log(`Retrying room join in 2 seconds... (${attempts}/${maxAttempts})`);
+                        setTimeout(attemptJoin, 2000);
+                    } else {
+                        throw error;
+                    }
+                }
+            };
+            
+            await attemptJoin();
+            
         } catch (error) {
             console.error('Error joining room:', error);
-            alert('Failed to join room. Please try again.');
+            let errorMessage = 'Failed to join room. ';
+            
+            if (error.message && error.message.includes('not found')) {
+                errorMessage += 'Room no longer exists.';
+            } else if (error.message && error.message.includes('full')) {
+                errorMessage += 'Room is full.';
+            } else if (error.message && error.message.includes('password')) {
+                errorMessage += 'Incorrect password.';
+            } else {
+                errorMessage += 'Please try again.';
+            }
+            
+            alert(errorMessage);
         }
     }
 
