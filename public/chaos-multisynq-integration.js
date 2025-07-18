@@ -2,7 +2,7 @@
 // Bu dosya Multisynq session'ını başlatır ve room manager ile entegre eder
 
 const MULTISYNQ_CONFIG = {
-    apiKey: '2dNJ78OxelBvHA8vNqKR3r8Sf1W2RKELUYsuZo0whf',
+    apiKey: '2w50KMtf6bYpOyVg3jtAai19FM2IrsaWuDCu9hzgHx',
     appId: 'com.chaosconductor.game',
     userId: '6876a905e273b89ce27dd663'
 };
