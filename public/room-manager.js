@@ -558,6 +558,31 @@ class RoomManager {
     isInRoom() {
         return this.currentRoom !== null;
     }
+
+    // Sayfa görünürlük değişikliklerinde oyun durumunu yenile
+    refreshCurrentState() {
+        console.log('🔄 Refreshing room manager state after page visibility change');
+        
+        if (this.currentRoom) {
+            // Mevcut oda durumunu koru
+            console.log('📱 Maintaining current room state:', this.currentRoom.name);
+            
+            // UI'yi güncelle
+            this.updateUI();
+            this.updatePlayersList();
+            
+            // Room listesini yenile
+            this.refreshRoomsList();
+            
+            // Multisynq view'dan güncel room listesi iste
+            if (this.multisynqView && this.multisynqView.requestRoomList) {
+                this.multisynqView.requestRoomList();
+            }
+        } else {
+            // Oda yoksa room listesini yenile
+            this.refreshRoomsList();
+        }
+    }
 }
 
 // Initialize room manager
