@@ -2,7 +2,7 @@
 // Bu dosya Multisynq session'ını başlatır ve room manager ile entegre eder
 
 const MULTISYNQ_CONFIG = {
-    apiKey: '2w50KMtf6bYpOyVg3jtAai19FM2IrsaWuDCu9hzgHx',
+    apiKey: '2dNJ78OxelBvHA8vNqKR3r8Sf1W2RKELUYsuZo0whf',
     appId: 'com.chaosconductor.game',
     userId: '6876a905e273b89ce27dd663'
 };
@@ -13,6 +13,54 @@ class ChaosMultisynqIntegration {
         this.view = null;
         this.isConnected = false;
         this.currentUser = null;
+        this.setupPageVisibilityHandling();
+    }
+
+    setupPageVisibilityHandling() {
+        // Page Visibility API ile arka plan geçişlerini yönet
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('🔄 Page hidden - maintaining Multisynq connection');
+                // Sayfa arka plana geçti ama bağlantıyı koru
+                this.handlePageHidden();
+            } else {
+                console.log('🔄 Page visible - resuming normal operation');
+                // Sayfa tekrar görünür oldu
+                this.handlePageVisible();
+            }
+        });
+
+        // Beforeunload event'i ile temizlik yap
+        window.addEventListener('beforeunload', () => {
+            console.log('🔄 Page unloading - preserving game state');
+            // Sayfa kapanıyor, oyun durumunu koru
+        });
+    }
+
+    handlePageHidden() {
+        // Sayfa arka plana geçtiğinde yapılacaklar
+        if (this.isConnected && this.session) {
+            console.log('📱 Page backgrounded - keeping session alive');
+            // Session'ı canlı tut, oyun durumunu koru
+        }
+    }
+
+    handlePageVisible() {
+        // Sayfa tekrar görünür olduğunda yapılacaklar
+        if (this.isConnected && this.session) {
+            console.log('📱 Page foregrounded - resuming game');
+            // Oyun durumunu geri yükle
+            this.refreshGameState();
+        }
+    }
+
+    refreshGameState() {
+        // Oyun durumunu yenile
+        if (this.view && window.roomManager) {
+            console.log('🔄 Refreshing game state after page visibility change');
+            // Room manager'dan mevcut durumu al
+            window.roomManager.refreshCurrentState();
+        }
     }
 
     async initializeMultisynq(user) {
@@ -40,7 +88,9 @@ class ChaosMultisynqIntegration {
                 view: window.ChaosGameView,
                 debug: ["session", "messages"],
                 tps: 30,
-                eventRateLimit: 30
+                eventRateLimit: 30,
+                autoSleep: false, // ARKA PLAN UYKU MODUNU DEVRE DIŞI BIRAK
+                rejoinLimit: 30000 // 30 saniye yeniden bağlanma süresi
             });
 
             this.view = this.session.view;
