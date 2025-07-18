@@ -461,10 +461,50 @@ async function handleUserRegistration() {
             registerBtn.textContent = 'Registering...';
         }
         
-        // Register user on blockchain
-        const result = await window.blockchainManager.registerUser(username);
-        if (result.success) {
-            alert('User registered successfully!');
+        // ENHANCED: Add timeout and retry mechanism
+        let result;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+            attempts++;
+            
+            if (registerBtn) {
+                registerBtn.textContent = `Registering... (${attempts}/${maxAttempts})`;
+            }
+            
+            try {
+                // Set timeout for blockchain operation
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Registration timeout - please try again')), 30000); // 30 second timeout
+                });
+                
+                const registrationPromise = window.blockchainManager.registerUser(username);
+                
+                result = await Promise.race([registrationPromise, timeoutPromise]);
+                
+                if (result.success) {
+                    break; // Success, exit retry loop
+                } else {
+                    console.warn(`Registration attempt ${attempts} failed:`, result.error);
+                    if (attempts === maxAttempts) {
+                        throw new Error(result.error);
+                    }
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            } catch (error) {
+                console.error(`Registration attempt ${attempts} error:`, error);
+                if (attempts === maxAttempts) {
+                    throw error;
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+        
+        if (result && result.success) {
+            showNotification('User registered successfully!', 'success');
             
             currentUsername = username;
             window.userName = username; // Global değişken güncelle
@@ -487,11 +527,19 @@ async function handleUserRegistration() {
                 });
             }
         } else {
-            alert('Registration failed: ' + result.error);
+            throw new Error('Registration failed after all attempts');
         }
     } catch (error) {
         console.error('Registration error:', error);
-        alert('Registration failed: ' + error.message);
+        let errorMessage = error.message;
+        if (error.message.includes('timeout')) {
+            errorMessage = 'Registration timed out. Please check your internet connection and try again.';
+        } else if (error.message.includes('user rejected')) {
+            errorMessage = 'Transaction cancelled by user';
+        } else if (error.message.includes('insufficient funds')) {
+            errorMessage = 'Insufficient MON balance for gas fees';
+        }
+        showNotification(`Registration failed: ${errorMessage}`, 'error');
     } finally {
         // Reset button state
         const registerBtn = document.getElementById('registerUserBtn');
