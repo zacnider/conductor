@@ -110,20 +110,21 @@ class ChaosGameModel extends Multisynq.Model {
             return;
         }
         
-        // Oyuncuyu oluştur - BLOCKCHAIN'DEN İSİM ALINACAK
+        // ENHANCED: Oyuncuyu oluştur - IMMEDIATE CREATION
         this.gameState.players[viewId] = {
             id: viewId,
-            name: null, // Blockchain'den alınacak
+            name: `Player${Math.floor(Math.random() * 1000)}`, // Temporary name, will be updated
             ready: false,
             combo: 0,
-            currentRoom: null
+            currentRoom: null,
+            isTemporary: true // Flag to indicate this is a temporary player
         };
         this.gameState.scores[viewId] = 0;
         
         const playerCount = Object.keys(this.gameState.players).length;
-        console.log('Player joined:', viewId, 'Total players:', playerCount);
+        console.log(`✅ Player created immediately: ${viewId} (${this.gameState.players[viewId].name}), Total players: ${playerCount}`);
         
-        // Broadcast player update
+        // IMMEDIATE: Broadcast player update so other functions can find this player
         this.publish(this.sessionId, "playersUpdate", {
             players: this.gameState.players,
             scores: this.gameState.scores,
@@ -132,6 +133,13 @@ class ChaosGameModel extends Multisynq.Model {
         
         // Send current room list to new player
         this.sendRoomListToPlayer(viewId);
+        
+        // ENHANCED: Send welcome message to player
+        this.publish(viewId, "playerWelcome", {
+            playerId: viewId,
+            playerName: this.gameState.players[viewId].name,
+            message: "Welcome to Chaos Conductor! Please set your player name."
+        });
     }
 
     onViewExit(viewId) {
@@ -174,11 +182,23 @@ class ChaosGameModel extends Multisynq.Model {
         const { viewId, roomName, maxPlayers, password } = data;
         const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        const player = this.gameState.players[viewId];
+        // ENHANCED: Player var mı kontrol et - yoksa oluştur
+        let player = this.gameState.players[viewId];
         if (!player) {
-            console.error('Player not found for room creation:', viewId);
-            this.publish(viewId, "roomCreateFailed", { error: "Player not found" });
-            return;
+            console.warn(`⚠️ Player not found for room creation, creating: ${viewId}`);
+            
+            // Player'ı oluştur
+            this.gameState.players[viewId] = {
+                id: viewId,
+                name: `Player${Math.floor(Math.random() * 1000)}`, // Temporary name
+                ready: false,
+                combo: 0,
+                currentRoom: null
+            };
+            this.gameState.scores[viewId] = 0;
+            
+            player = this.gameState.players[viewId];
+            console.log(`✅ Player created for room creation: ${viewId}`);
         }
         
         // Ensure player has a valid name
@@ -414,14 +434,21 @@ class ChaosGameModel extends Multisynq.Model {
     handleSetPlayerName(data) {
         const { viewId, name } = data;
         
-        // Player var mı kontrol et
+        // ENHANCED: Player var mı kontrol et - yoksa oluştur
         if (!this.gameState.players[viewId]) {
-            console.error(`❌ Player not found: ${viewId}`);
-            this.publish(viewId, "playerNameSet", {
-                success: false,
-                error: "Player not found"
-            });
-            return;
+            console.warn(`⚠️ Player not found, creating: ${viewId}`);
+            
+            // Player'ı oluştur
+            this.gameState.players[viewId] = {
+                id: viewId,
+                name: null,
+                ready: false,
+                combo: 0,
+                currentRoom: null
+            };
+            this.gameState.scores[viewId] = 0;
+            
+            console.log(`✅ Player created: ${viewId}`);
         }
         
         // Name validation - daha esnek
