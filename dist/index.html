@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ CHAOS CONDUCTOR ⚡</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Ana Menü -->
+        <div id="main-menu" class="screen active">
+            <div class="chaos-title">
+                <h1>⚡ CHAOS CONDUCTOR ⚡</h1>
+                <p class="subtitle">Multiplayer Chaos Game</p>
+            </div>
+            
+            <div class="menu-container">
+                <input type="text" id="player-name" placeholder="Oyuncu Adınız" maxlength="20">
+                <input type="text" id="room-code" placeholder="Oda Kodu (opsiyonel)" maxlength="10">
+                <button id="join-game-btn" class="chaos-btn primary">OYUNA KATIL</button>
+                <button id="create-room-btn" class="chaos-btn secondary">ODA OLUŞTUR</button>
+            </div>
+            
+            <div class="live-games-container">
+                <h3>🔴 Canlı Oyunlar</h3>
+                <div id="live-games-list">
+                    <div class="loading">Odalar yükleniyor...</div>
+                </div>
+                <button id="refresh-rooms-btn" class="chaos-btn small">🔄 Yenile</button>
+            </div>
+            
+            <div class="game-info">
+                <h3>Nasıl Oynanır?</h3>
+                <ul>
+                    <li>4-8 oyuncu aynı anda</li>
+                    <li>Rastgele görevler belirir</li>
+                    <li>Hızlı ol, puan kazan!</li>
+                    <li>Sabotaj ve kaos faktörü</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bekleme Odası -->
+        <div id="lobby" class="screen">
+            <div class="lobby-header">
+                <h2>Oda: <span id="room-name"></span></h2>
+                <div class="room-code">Kod: <span id="current-room-code"></span></div>
+            </div>
+            
+            <div class="players-container">
+                <h3>Oyuncular (<span id="player-count">0</span>/8)</h3>
+                <div id="players-list"></div>
+            </div>
+            
+            <div class="lobby-controls">
+                <button id="start-game-btn" class="chaos-btn primary" disabled>OYUNU BAŞLAT</button>
+                <button id="leave-room-btn" class="chaos-btn secondary">ODADAN AYRIL</button>
+            </div>
+            
+            <div class="chat-container">
+                <h4 style="color: #4ecdc4; margin: 0 0 10px 15px;">💬 Chat</h4>
+                <div id="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Mesaj yazın..." maxlength="100">
+                    <button id="send-chat-btn">Gönder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oyun Ekranı -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="game-info-bar">
+                    <div class="timer">
+                        <span id="task-timer">10</span>s
+                    </div>
+                    <div class="round-info">
+                        Round <span id="current-round">1</span>
+                    </div>
+                    <div class="score">
+                        Puan: <span id="player-score">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="task-container">
+                <div id="current-task" class="task-display">
+                    <h2 id="task-description">Görev yükleniyor...</h2>
+                    <div id="task-progress"></div>
+                </div>
+            </div>
+
+            <div class="game-area">
+                <canvas id="game-canvas"></canvas>
+                <div id="game-ui"></div>
+            </div>
+
+            <div class="leaderboard">
+                <h3>Skor Tablosu</h3>
+                <div id="scores-list"></div>
+            </div>
+        </div>
+
+        <!-- Oyun Sonu -->
+        <div id="game-over" class="screen">
+            <div class="game-over-content">
+                <h1>🎉 OYUN BİTTİ! 🎉</h1>
+                <div id="final-scores"></div>
+                <div class="game-over-controls">
+                    <button id="play-again-btn" class="chaos-btn primary">TEKRAR OYNA</button>
+                    <button id="main-menu-btn" class="chaos-btn secondary">ANA MENÜ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bildirimler -->
+    <div id="notifications"></div>
+
+    <!-- Ses Efektleri -->
+    <audio id="task-complete-sound" preload="auto">
+        <source src="sounds/task-complete.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="task-fail-sound" preload="auto">
+        <source src="sounds/task-fail.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sabotage-sound" preload="auto">
+        <source src="sounds/sabotage.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="game.bundle.js"></script>
+</body>
+</html>

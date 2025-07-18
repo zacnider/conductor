@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAOS CONDUCTOR - Monad Multiplayer Game</title>
+    <link rel="stylesheet" href="public/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.0/dist/ethers.umd.min.js"></script>
+    
+    <!-- Multisynq with error handling -->
+    <script>
+        // Chrome compatibility fix for Multisynq/Croquet loader
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('croquet_loader')) {
+                console.warn('Croquet loader error caught and handled:', e.message);
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Load Multisynq with proper loading order
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@multisynq/client@latest/bundled/multisynq-client.min.js';
+            script.onerror = function() {
+                console.warn('Multisynq failed to load, continuing without real-time features');
+                window.MultisynqLoadFailed = true;
+                loadDependentScripts();
+            };
+            script.onload = function() {
+                console.log('Multisynq loaded successfully');
+                window.MultisynqLoaded = true;
+                loadDependentScripts();
+            };
+            document.head.appendChild(script);
+        })();
+        
+        // Load dependent scripts after Multisynq is ready
+        function loadDependentScripts() {
+            const scripts = [
+                'public/blockchain-simplified.js',
+                'public/animations.js',
+                'public/multisynq-chaos.js',
+                'public/chaos-multisynq-integration.js',
+                'public/leaderboard-manager.js',
+                'public/chat-system.js',
+                'public/room-manager.js',
+                'public/games.js',
+                'public/wallet-simplified.js'
+            ];
+            
+            let loadedCount = 0;
+            scripts.forEach((src, index) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = function() {
+                    loadedCount++;
+                    console.log(`Loaded ${src} (${loadedCount}/${scripts.length})`);
+                    if (loadedCount === scripts.length) {
+                        console.log('All scripts loaded successfully');
+                        window.AllScriptsLoaded = true;
+                    }
+                };
+                script.onerror = function() {
+                    console.error(`Failed to load ${src}`);
+                };
+                document.head.appendChild(script);
+            });
+        }
+    </script>
+</head>
+<body>
+    <div id="app">
+        <!-- Top Banner -->
+        <div id="topBanner" class="top-banner">
+            <div class="banner-content">
+                <div class="banner-left">
+                    <img src="public/logo.png" alt="Chaos Conductor Logo" class="banner-logo">
+                    <div class="banner-text">
+                        <h1 class="banner-title"> CHAOS CONDUCTOR</h1>
+                        <p class="banner-subtitle">Monad Testnet Multiplayer Game</p>
+                    </div>
+                </div>
+                <div class="banner-right">
+                    <div id="walletSection" class="wallet-section">
+                        <button id="connectWalletBtn" class="wallet-btn">
+                            🔗 Connect Wallet
+                        </button>
+                        <div id="walletInfo" class="wallet-info" style="display: none;">
+                            <div class="wallet-address">
+                                <span id="userAddress">0x...</span>
+                                <span id="username" class="username"></span>
+                            </div>
+                            <div class="wallet-balances">
+                                <span class="balance-item">
+                                    💰 <span id="monBalance">0</span> MON
+                                </span>
+                                <span class="balance-item">
+                                    🏆 <span id="cpBalance">0</span> CP
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game Layout -->
+        <!-- Main Game Layout -->
+        <div id="gameLayout" class="game-layout">
+            <!-- Left Panel - Rooms -->
+            <div class="left-panel">
+                <div class="panel-header">
+                    <h3>🏠 Active Rooms</h3>
+                    <button id="refreshRooms" class="refresh-btn">🔄</button>
+                </div>
+                <div id="roomsList" class="rooms-list">
+                    <!-- Rooms will be populated here -->
+                </div>
+                <div class="room-actions">
+                    <button id="createRoomBtn" class="action-btn primary">
+                        ➕ Create Room
+                    </button>
+                </div>
+            </div>
+            <!-- Center Panel - Game Area -->
+            <div class="center-panel">
+                <!-- Welcome Screen -->
+                <div id="welcomeScreen" class="welcome-screen active">
+                    <div id="walletPrompt" class="wallet-prompt">
+                        <h2>🔗 Connect Your Wallet</h2>
+                        <p>Connect your wallet to start playing and earning CP tokens!</p>
+                        <button id="connectWalletMainBtn" class="menu-btn primary">
+                            Connect Wallet
+                        </button>
+                    </div>
+                    
+                    <div id="userRegistration" class="user-registration" style="display: none;">
+                        <h2>👤 Create Username</h2>
+                        <p>Choose a username to start playing:</p>
+                        <div class="form-group">
+                            <input type="text" id="usernameInput" placeholder="Enter username..." maxlength="20">
+                            <button id="registerUserBtn" class="menu-btn primary">Register</button>
+                        </div>
+                    </div>
+                    
+                    <div id="gameReady" class="game-ready" style="display: none;">
+                        <h2>🎮 Ready to Play!</h2>
+                        <p>Select a room from the left panel or create your own room to start playing!</p>
+                        <div class="game-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Your Rank:</span>
+                                <span id="playerRank" class="stat-value">#-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Score:</span>
+                                <span id="playerScore" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Games Played:</span>
+                                <span id="playerGames" class="stat-value">0</span>
+                            </div>
+                        </div>
+                        <div class="room-selection-info">
+                            <p>🏠 <strong>Room System:</strong> Create your own room or join existing ones!</p>
+                            <p>👥 <strong>Multiplayer:</strong> Up to 8 players per room</p>
+                            <p>🚪 <strong>Leave anytime:</strong> Use the Leave button to exit rooms</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Area -->
+                <div id="gameArea" class="game-area" style="display: none;">
+                    <div class="game-header">
+                        <div class="game-info">
+                            <div class="room-info">
+                                Room: <span id="currentRoomId">-</span>
+                            </div>
+                            <div class="round-info">
+                                Round <span id="currentRound">1</span>/5
+                            </div>
+                            <div class="time-left">
+                                <span id="timeLeft">15.0</span>s
+                            </div>
+                        </div>
+                        <div class="task-instruction">
+                            <span id="taskInstruction">Loading task...</span>
+                        </div>
+                    </div>
+
+                    <div class="game-canvas-container">
+                        <canvas id="gameCanvas" width="800" height="600"></canvas>
+                        
+                        <!-- Task-specific UI elements -->
+                        <div id="typingTask" class="typing-task" style="display: none;">
+                            <input type="text" id="typingInput" placeholder="Type here...">
+                        </div>
+                        
+                        <div id="sequenceTask" class="sequence-task" style="display: none;">
+                            <div id="sequenceButtons" class="sequence-buttons"></div>
+                        </div>
+                        
+                        <div id="memoryTask" class="memory-task" style="display: none;">
+                            <div id="memoryColors" class="memory-colors"></div>
+                            <div id="memoryInput" class="memory-input" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Panel - Players & Chat -->
+            <div class="right-panel">
+                <!-- Players Panel -->
+                <div class="players-panel">
+                    <div class="panel-header">
+                        <h3>👥 Players</h3>
+                        <span id="playersCount" class="count-badge">0</span>
+                    </div>
+                    
+                    <!-- Waiting Players -->
+                    <div id="waitingPlayersSection" class="players-section">
+                        <h4>⏳ Waiting</h4>
+                        <div id="waitingPlayersList" class="players-list">
+                            <!-- Waiting players will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Room Players -->
+                    <div id="roomPlayersSection" class="players-section">
+                        <h4>🏠 In Room</h4>
+                        <div id="roomPlayersList" class="players-list">
+                            <!-- Room players will be populated here -->
+                        </div>
+                    </div>
+                    
+                </div>
+
+                <!-- Chat Panel -->
+                <div id="chatSection" class="chat-panel">
+                    <div class="chat-header">
+                        <h4>💬 Room Chat</h4>
+                        <button id="toggleEmojiBtn" class="emoji-toggle">😀</button>
+                    </div>
+                    
+                    <div id="chatMessages" class="chat-messages">
+                        <!-- Chat messages will appear here -->
+                    </div>
+                    
+                    <!-- Emoji Picker -->
+                    <div id="emojiPicker" class="emoji-picker" style="display: none;">
+                        <div class="emoji-categories">
+                            <button class="emoji-category active" data-category="faces">😀</button>
+                            <button class="emoji-category" data-category="gestures">👍</button>
+                            <button class="emoji-category" data-category="objects">🎮</button>
+                            <button class="emoji-category" data-category="symbols">⭐</button>
+                            <button class="emoji-category" data-category="food">🍕</button>
+                        </div>
+                        <div class="emoji-grid" id="emojiGrid">
+                            <!-- Faces -->
+                            <div class="emoji-category-content" data-category="faces">
+                                <span class="emoji-btn">😀</span><span class="emoji-btn">😃</span><span class="emoji-btn">😄</span><span class="emoji-btn">😁</span>
+                                <span class="emoji-btn">😆</span><span class="emoji-btn">😅</span><span class="emoji-btn">😂</span><span class="emoji-btn">🤣</span>
+                                <span class="emoji-btn">😊</span><span class="emoji-btn">😇</span><span class="emoji-btn">🙂</span><span class="emoji-btn">🙃</span>
+                                <span class="emoji-btn">😉</span><span class="emoji-btn">😌</span><span class="emoji-btn">😍</span><span class="emoji-btn">🥰</span>
+                                <span class="emoji-btn">😘</span><span class="emoji-btn">😗</span><span class="emoji-btn">😙</span><span class="emoji-btn">😚</span>
+                                <span class="emoji-btn">😋</span><span class="emoji-btn">😛</span><span class="emoji-btn">😝</span><span class="emoji-btn">😜</span>
+                                <span class="emoji-btn">🤪</span><span class="emoji-btn">🤨</span><span class="emoji-btn">🧐</span><span class="emoji-btn">🤓</span>
+                                <span class="emoji-btn">😎</span><span class="emoji-btn">🤩</span><span class="emoji-btn">🥳</span><span class="emoji-btn">😏</span>
+                                <span class="emoji-btn">😒</span><span class="emoji-btn">😞</span><span class="emoji-btn">😔</span><span class="emoji-btn">😟</span>
+                                <span class="emoji-btn">😕</span><span class="emoji-btn">🙁</span><span class="emoji-btn">☹️</span><span class="emoji-btn">😣</span>
+                                <span class="emoji-btn">😖</span><span class="emoji-btn">😫</span><span class="emoji-btn">😩</span><span class="emoji-btn">🥺</span>
+                                <span class="emoji-btn">😢</span><span class="emoji-btn">😭</span><span class="emoji-btn">😤</span><span class="emoji-btn">😠</span>
+                                <span class="emoji-btn">😡</span><span class="emoji-btn">🤬</span><span class="emoji-btn">🤯</span><span class="emoji-btn">😳</span>
+                                <span class="emoji-btn">🥵</span><span class="emoji-btn">🥶</span><span class="emoji-btn">😱</span><span class="emoji-btn">😨</span>
+                                <span class="emoji-btn">😰</span><span class="emoji-btn">😥</span><span class="emoji-btn">😓</span><span class="emoji-btn">🤗</span>
+                                <span class="emoji-btn">🤔</span><span class="emoji-btn">🤭</span><span class="emoji-btn">🤫</span><span class="emoji-btn">🤥</span>
+                            </div>
+                            <!-- Gestures -->
+                            <div class="emoji-category-content" data-category="gestures" style="display: none;">
+                                <span class="emoji-btn">👍</span><span class="emoji-btn">👎</span><span class="emoji-btn">👌</span><span class="emoji-btn">🤌</span>
+                                <span class="emoji-btn">🤏</span><span class="emoji-btn">✌️</span><span class="emoji-btn">🤞</span><span class="emoji-btn">🤟</span>
+                                <span class="emoji-btn">🤘</span><span class="emoji-btn">🤙</span><span class="emoji-btn">👈</span><span class="emoji-btn">👉</span>
+                                <span class="emoji-btn">👆</span><span class="emoji-btn">🖕</span><span class="emoji-btn">👇</span><span class="emoji-btn">☝️</span>
+                                <span class="emoji-btn">👋</span><span class="emoji-btn">🤚</span><span class="emoji-btn">🖐️</span><span class="emoji-btn">✋</span>
+                                <span class="emoji-btn">🖖</span><span class="emoji-btn">👏</span><span class="emoji-btn">🙌</span><span class="emoji-btn">🤝</span>
+                                <span class="emoji-btn">🙏</span><span class="emoji-btn">✍️</span><span class="emoji-btn">💪</span><span class="emoji-btn">🦾</span>
+                                <span class="emoji-btn">🦿</span><span class="emoji-btn">🦵</span><span class="emoji-btn">🦶</span><span class="emoji-btn">👂</span>
+                            </div>
+                            <!-- Objects -->
+                            <div class="emoji-category-content" data-category="objects" style="display: none;">
+                                <span class="emoji-btn">🎮</span><span class="emoji-btn">🕹️</span><span class="emoji-btn">🎯</span><span class="emoji-btn">🎲</span>
+                                <span class="emoji-btn">🃏</span><span class="emoji-btn">🎴</span><span class="emoji-btn">🀄</span><span class="emoji-btn">🎭</span>
+                                <span class="emoji-btn">🎨</span><span class="emoji-btn">🎬</span><span class="emoji-btn">🎤</span><span class="emoji-btn">🎧</span>
+                                <span class="emoji-btn">🎼</span><span class="emoji-btn">🎵</span><span class="emoji-btn">🎶</span><span class="emoji-btn">🎹</span>
+                                <span class="emoji-btn">🥁</span><span class="emoji-btn">🎷</span><span class="emoji-btn">🎺</span><span class="emoji-btn">🎸</span>
+                                <span class="emoji-btn">🪕</span><span class="emoji-btn">🎻</span><span class="emoji-btn">📱</span><span class="emoji-btn">📲</span>
+                                <span class="emoji-btn">💻</span><span class="emoji-btn">🖥️</span><span class="emoji-btn">🖨️</span><span class="emoji-btn">⌨️</span>
+                                <span class="emoji-btn">🖱️</span><span class="emoji-btn">🖲️</span><span class="emoji-btn">💽</span><span class="emoji-btn">💾</span>
+                            </div>
+                            <!-- Symbols -->
+                            <div class="emoji-category-content" data-category="symbols" style="display: none;">
+                                <span class="emoji-btn">⭐</span><span class="emoji-btn">🌟</span><span class="emoji-btn">💫</span><span class="emoji-btn">✨</span>
+                                <span class="emoji-btn">🔥</span><span class="emoji-btn">💯</span><span class="emoji-btn">💢</span><span class="emoji-btn">💥</span>
+                                <span class="emoji-btn">💦</span><span class="emoji-btn">💨</span><span class="emoji-btn">🕳️</span><span class="emoji-btn">💣</span>
+                                <span class="emoji-btn">💬</span><span class="emoji-btn">👁️‍🗨️</span><span class="emoji-btn">🗨️</span><span class="emoji-btn">🗯️</span>
+                                <span class="emoji-btn">💭</span><span class="emoji-btn">💤</span><span class="emoji-btn">❤️</span><span class="emoji-btn">🧡</span>
+                                <span class="emoji-btn">💛</span><span class="emoji-btn">💚</span><span class="emoji-btn">💙</span><span class="emoji-btn">💜</span>
+                                <span class="emoji-btn">🖤</span><span class="emoji-btn">🤍</span><span class="emoji-btn">🤎</span><span class="emoji-btn">💔</span>
+                                <span class="emoji-btn">❣️</span><span class="emoji-btn">💕</span><span class="emoji-btn">💞</span><span class="emoji-btn">💓</span>
+                            </div>
+                            <!-- Food -->
+                            <div class="emoji-category-content" data-category="food" style="display: none;">
+                                <span class="emoji-btn">🍕</span><span class="emoji-btn">🍔</span><span class="emoji-btn">🍟</span><span class="emoji-btn">🌭</span>
+                                <span class="emoji-btn">🥪</span><span class="emoji-btn">🌮</span><span class="emoji-btn">🌯</span><span class="emoji-btn">🥙</span>
+                                <span class="emoji-btn">🧆</span><span class="emoji-btn">🥚</span><span class="emoji-btn">🍳</span><span class="emoji-btn">🥘</span>
+                                <span class="emoji-btn">🍲</span><span class="emoji-btn">🥗</span><span class="emoji-btn">🍿</span><span class="emoji-btn">🧈</span>
+                                <span class="emoji-btn">🧂</span><span class="emoji-btn">🥨</span><span class="emoji-btn">🥖</span><span class="emoji-btn">🍞</span>
+                                <span class="emoji-btn">🥐</span><span class="emoji-btn">🥯</span><span class="emoji-btn">🍰</span><span class="emoji-btn">🎂</span>
+                                <span class="emoji-btn">🧁</span><span class="emoji-btn">🥧</span><span class="emoji-btn">🍫</span><span class="emoji-btn">🍬</span>
+                                <span class="emoji-btn">🍭</span><span class="emoji-btn">🍮</span><span class="emoji-btn">🍯</span><span class="emoji-btn">☕</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="200">
+                        <button id="sendChatBtn" class="send-btn">📤</button>
+                    </div>
+                </div>
+
+                <!-- Game Actions -->
+                <div class="game-actions">
+                    <button id="startGameBtn" class="action-btn primary" disabled>
+                        🎮 Start Game (0/2)
+                    </button>
+                    <button id="leaveRoomBtn" class="action-btn secondary" style="display: none;">
+                        🚪 Leave Room
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard will be dynamically created by leaderboard-manager.js -->
+
+    </div>
+
+    <!-- <script src="public/game.js"></script> -->
+</body>
+</html>
