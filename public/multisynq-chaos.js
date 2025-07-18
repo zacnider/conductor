@@ -1,7 +1,7 @@
 // Chaos Conductor - Multisynq ile Real-time Multiplayer Game
 
 // Multisynq Configuration
-const MULTISYNQ_API_KEY = 'aAPI';
+const MULTISYNQ_API_KEY = '2dNJ78OxelBvHA8vNqKR3r8Sf1W2RKELUYsuZo0whf';
 const MULTISYNQ_USER_ID = 'USERID';
 const APP_ID = 'com.chaosconductor.game';
 
